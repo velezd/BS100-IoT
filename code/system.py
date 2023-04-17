@@ -4,7 +4,6 @@ import socket
 import struct
 import requests
 from machine import RTC
-from ucollections import OrderedDict
 from base_menu import BaseMenu
 from presets import PresetsListMenu
 
@@ -163,13 +162,26 @@ class ServiceMenu(BaseMenu):
 
 
 class BS100_dashboard():
-    def __init__(self, display):
+    def __init__(self, display, keypad):
+        self.keypad = keypad
         self.display = display
         self.display.print('Initialization', (3,1))
         self.display.move_to(0,3)
+        self.backlight = True
+
+        self._timers_full = {
+            'time': 60, # 1 minute
+            'calendar': 7200, # 2 hours
+            'backlight': 30 # 0.5 minute
+        }
+        self._timers = {}
+        for timer in self._timers_full.keys():
+            self.reset_timer(timer)
+
         self.load_bar(2)
 
     def get_calendar(self):
+        # Get current calendar data
         url = ''
         r = requests.get(url)
         t = r.text
@@ -177,20 +189,57 @@ class BS100_dashboard():
         self.calendar = t.splitlines()
 
     def print_calendar(self):
+        # Show calendar
         for i, line in enumerate(self.calendar):
             self.display.print(line, (0,i))
 
     def load_bar(self, n):
+        # Show part of the loading progress bar
         for _ in range(n):
             self.display.putchar(chr(255))
 
     def show_time(self):
+        # Show time
         t = time.localtime()
         h = f' {t[3]}' if len(str(t[3])) == 1 else t[3]
         m = f'0{t[4]}' if len(str(t[4])) == 1 else t[4]
         self.display.print(f'{h}:{m}', (15,3))
 
     def draw_dash(self):
+        # Draw dashboard UI
+        self.backlight_on()
         self.display.clear()
         self.print_calendar()
         self.show_time()
+
+    def reset_timer(self, name):
+        # Check if the time in timer has passed
+        self._timers[name] = time.time() + self._timers_full[name]
+
+    def timer_passed(self, name):
+        # Reset specified timer
+        return time.time() > self._timers[name]
+
+    def backlight_on(self):
+        # Turn on backlight
+        self.reset_timer('backlight')
+        if self.backlight == False:
+            self.backlight = True
+            self.display.backlight_on()
+            self.keypad.backlight_on()
+
+    def update(self):
+        # Turn off backlight
+        if self.timer_passed('backlight'):
+            if self.backlight == True:
+                self.backlight = False
+                self.display.backlight_off()
+                self.keypad.backlight_off()
+        # Update time
+        if self.timer_passed('time'):
+            self.show_time()
+            self.reset_timer('time')
+        # Update calendar
+        if self.timer_passed('calendar'):
+            self.get_calendar()
+            self.reset_timer('calendar')
