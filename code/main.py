@@ -1,51 +1,42 @@
 import system
 import time
-import requests
-from menus import ItemMenu
-from keypad import Keypad
-from display import Display
+from lights_menu import LightsMenu
+from hardware import Keypad, Display
 from deconz import Deconz
+from presets import PresetsActions
 
-
-def get_calendar():
-    url = ''
-    r = requests.get(url)
-    t = r.text
-    r.close()
-    return t
-
-def print_calendar(cal, d):
-    for i, line in enumerate(cal):
-        d.print(line, (0,i))
 
 display = Display()
+dash = system.BS100_dashboard(display)
+
 keypad = Keypad()
+dash.load_bar(2)
+
 settings = system.Settings()
+dash.load_bar(2)
 
-system.start_wifi(display, settings)
+ip = ""#system.start_wifi(display, settings, verbose=False)
+dash.load_bar(4)
 
-display.print('Init deCONZ', (4,1)) 
 deconz = Deconz()
+dash.load_bar(5)
 
-display.clear()
-display.print('Init time', (5,1))
 system.set_time(settings)
+dash.load_bar(2)
 
-display.clear()
-display.print('Init calendar', (3,1))
-calendar = get_calendar().splitlines()
+dash.get_calendar()
+dash.load_bar(3)
 
-display.clear()
-print_calendar(calendar, display)
-
-system.show_time(display)
+preset_actions = PresetsActions(keypad, deconz, display)
+dash.draw_dash()
 
 t_backlight = time.time()+30
 b_backlight = True
-t_time = time.time()+60
-
+t_time = time.time()+60 # 1 minute
+t_calendar = time.time()+7200 # 2 hours
 while True:
     keypad.get_keys()
+
     if keypad.any_pressed():
         # Turn on backlight
         if b_backlight == False:
@@ -54,14 +45,19 @@ while True:
             keypad.backlight_on()
         t_backlight = time.time()+30
 
+        if preset_actions.key_pressed():
+            dash.draw_dash()
+
     if keypad.p_potvrz:
         display.clear()
         display.print('Loading...', (5,1))
         deconz.get_lights()
-        ItemMenu(deconz.lights, keypad, display, True).run()
-        display.clear()
-        print_calendar(calendar, display)
-        system.show_time(display)
+        LightsMenu(deconz.lights, keypad, display, True).run()
+        dash.draw_dash()
+
+    if keypad.p_zero:
+        system.ServiceMenu(ip, settings, display, keypad, deconz).run()
+        dash.draw_dash()
 
     t = time.time()
     # Turn off backlight
@@ -70,6 +66,11 @@ while True:
             b_backlight = False
             display.backlight_off()
             keypad.backlight_off()
+    # Update time
     if t > t_time:
-        system.show_time(display)
+        dash.show_time()
         t_time = time.time()+60
+    # Update calendar
+    if t > t_calendar:
+        dash.get_calendar()
+        t_calendar = time.time()+7200

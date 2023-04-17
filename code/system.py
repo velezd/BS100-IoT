@@ -2,19 +2,24 @@ import network as n
 import time
 import socket
 import struct
+import requests
 from machine import RTC
+from ucollections import OrderedDict
+from base_menu import BaseMenu
+from presets import PresetsListMenu
 
 
-def start_wifi(display, settings):
+def start_wifi(display, settings, verbose=True):
     try:
-        ssid = settings.wifi_ssid
-        passw = settings.wifi_pass
+        ssid = settings.g('wifi_ssid')
+        passw = settings.g('wifi_pass')
     except:
         display.print('WiFi config error', (0,1))
         time.sleep(3)
         return False
 
-    display.print('Connecting to WiFi', (1,1))
+    if verbose:
+        display.print('Connecting to WiFi', (1,1))
     ok = False
 
     try:
@@ -24,7 +29,6 @@ def start_wifi(display, settings):
         wlan.active(True)       # activate the interface
         wlan.connect(ssid, passw) # connect to an AP
 
-        display.print('Connecting to WiFi', (1,1))
         while not ok:
             s = wlan.status()
             if s == n.STAT_GOT_IP:
@@ -48,15 +52,17 @@ def start_wifi(display, settings):
         raise
 
     if ok:
-        display.clear()
-        display.print('Connected', (0,1))
-        display.print(wlan.ifconfig()[0], (0,2))
-        time.sleep(3)
-        return True
+        if verbose:
+            display.clear()
+            display.print('Connected', (0,1))
+            display.print(wlan.ifconfig()[0], (0,2))
+            time.sleep(3)
+        return wlan.ifconfig()[0]
     
     display.print('Connection failed', (1,2))
     time.sleep(3)
     return False
+
 
 def ntptime():
     HOST = 'ntp.nic.cz'
@@ -71,9 +77,10 @@ def ntptime():
     val = struct.unpack("!I", msg[40:44])[0]
     return int(val-3155673600)
 
+
 def set_time(settings):
     try:
-        summer = bool(settings.time_summer)
+        summer = bool(settings.g('time_summer'))
     except:
         summer = False
 
@@ -82,12 +89,6 @@ def set_time(settings):
     h = tm[3]+2 if summer else tm[3]+1 # Timezone + summer time correction
     tm = tm[0:3] + (0,h) + tm[4:6] + (0,)
     RTC().datetime(tm)
-
-def show_time(d):
-    t = time.localtime()
-    h = f' {t[3]}' if len(str(t[3])) == 1 else t[3]
-    m = f'0{t[4]}' if len(str(t[4])) == 1 else t[4]
-    d.print(f'{h}:{m}', (15,3))
 
 
 class Settings():
@@ -100,13 +101,13 @@ class Settings():
                 if line.startswith('#'):
                     continue
                 try:
-                    n, v = line.split('=', '1')    
+                    n, v = line.split('=', 1)
                 except:
                     continue
                 self._settings[n.strip()] = v.strip()
 
-    def __getattribute__(self, name):
-        return self._settings[name]
+    def g(self, n):
+        return self._settings.get(n)
 
     def update(self, name, value):
         self._settings[name] = value
@@ -114,3 +115,82 @@ class Settings():
         with open(self._cfg_file, 'w') as fo:
             for k,v in self._settings.items():
                 fo.write(f'{k}={v}\n')
+
+
+class ServiceMenu(BaseMenu):
+    def __init__(self, ip, settings, display, keypad, deconz):
+        self.settings = settings
+        items = {0: None,
+                 1: 'time_summer',
+                 2: PresetsListMenu(keypad, display, deconz)}
+        super().__init__(display, keypad, items, True)
+        self.strings = ['IP: ' + ip, 'Summer time', 'Presets']
+        self.item_toggles[1] = self.settings.g('time_summer')
+
+    def run(self):
+        self.draw()
+
+        while True:
+            self.keypad.get_keys()
+            if self.keypad.p_zrusit:
+                return False
+            # Enter submenu item
+            if self.keypad.p_potvrz:
+                if 'run' in dir(self.items[self.selected]):
+                    self.items[self.selected].run()
+                self.draw()
+            # Change toggle settings
+            if self.keypad.p_revize:
+                if isinstance(self.items[self.selected], str):
+                    if self.item_toggles[self.selected]:
+                        self.settings.update(self.items[self.selected], False)
+                        self.item_toggles[self.selected] = False
+                    else:
+                        self.settings.update(self.items[self.selected], True)
+                        self.item_toggles[self.selected] = True
+                    self.draw_name(1)
+            # Menu item selection
+            if self.keypad.p_up:
+                self.selected -= 1
+                if self.selected == -1:
+                    self.selected = self.n_items-1
+                self.draw()
+            if self.keypad.p_down:
+                self.selected += 1
+                if self.selected == self.n_items:
+                    self.selected = 0
+                self.draw()
+
+
+class BS100_dashboard():
+    def __init__(self, display):
+        self.display = display
+        self.display.print('Initialization', (3,1))
+        self.display.move_to(0,3)
+        self.load_bar(2)
+
+    def get_calendar(self):
+        url = ''
+        r = requests.get(url)
+        t = r.text
+        r.close()
+        self.calendar = t.splitlines()
+
+    def print_calendar(self):
+        for i, line in enumerate(self.calendar):
+            self.display.print(line, (0,i))
+
+    def load_bar(self, n):
+        for _ in range(n):
+            self.display.putchar(chr(255))
+
+    def show_time(self):
+        t = time.localtime()
+        h = f' {t[3]}' if len(str(t[3])) == 1 else t[3]
+        m = f'0{t[4]}' if len(str(t[4])) == 1 else t[4]
+        self.display.print(f'{h}:{m}', (15,3))
+
+    def draw_dash(self):
+        self.display.clear()
+        self.print_calendar()
+        self.show_time()
