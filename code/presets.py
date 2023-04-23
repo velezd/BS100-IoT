@@ -153,6 +153,9 @@ class PresetMenu(BaseMenu):
 
                 # Add light to preset
                 if item_name == '[ ADD ]':
+                    self.display.clear()
+                    self.display.print('Loading...', (5,1))
+                    self.deconz.get_lights()
                     l = LightsMenu(self.unused_lights, self.keypad, self.display, return_light=True).run()
                     if l:
                         self.preset[l.id] = l.state
