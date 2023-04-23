@@ -45,6 +45,7 @@ while True:
 
     if keypad.p_zero:
         system.ServiceMenu(ip, settings, display, keypad, deconz).run()
+        preset_actions.load()
         dash.draw_dash()
 
     dash.update()
