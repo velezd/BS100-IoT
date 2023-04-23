@@ -6,6 +6,7 @@ import requests
 from machine import RTC
 from base_menu import BaseMenu
 from presets import PresetsListMenu
+from temperature import TempSensor
 
 
 def start_wifi(display, settings, verbose=True):
@@ -168,11 +169,15 @@ class BS100_dashboard():
         self.display.print('Initialization', (3,1))
         self.display.move_to(0,3)
         self.backlight = True
+        self.temp_sensor = TempSensor()
+        self.temp = '----'
+        self.deg_char = bytearray([0x02,0x05,0x02,0x00,0x00,0x00,0x00,0x00]) # degree character
 
         self._timers_full = {
             'time': 60, # 1 minute
             'calendar': 7200, # 2 hours
-            'backlight': 30 # 0.5 minute
+            'backlight': 30, # 0.5 minute
+            'temp': 5
         }
         self._timers = {}
         for timer in self._timers_full.keys():
@@ -205,11 +210,16 @@ class BS100_dashboard():
         m = f'0{t[4]}' if len(str(t[4])) == 1 else t[4]
         self.display.print(f'{h}:{m}', (15,3))
 
+    def show_temp(self):
+        self.display.print(self.temp + chr(0) + 'C', (0,3))
+
     def draw_dash(self):
         # Draw dashboard UI
+        self.display.custom_char(0, self.deg_char)
         self.backlight_on()
         self.display.clear()
         self.print_calendar()
+        self.show_temp()
         self.show_time()
 
     def reset_timer(self, name):
@@ -244,3 +254,8 @@ class BS100_dashboard():
             self.get_calendar()
             self.print_calendar()
             self.reset_timer('calendar')
+        # Update temperature
+        if self.timer_passed('temp'):
+            self.temp = self.temp_sensor.read()
+            self.show_temp()
+            self.reset_timer('temp')
