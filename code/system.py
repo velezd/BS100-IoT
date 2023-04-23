@@ -242,4 +242,5 @@ class BS100_dashboard():
         # Update calendar
         if self.timer_passed('calendar'):
             self.get_calendar()
+            self.print_calendar()
             self.reset_timer('calendar')
