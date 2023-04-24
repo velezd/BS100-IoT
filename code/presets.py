@@ -3,6 +3,7 @@ import time
 from ucollections import OrderedDict
 from base_menu import BaseMenu
 from lights_menu import LightsMenu, ColorMenu
+from input_ui import text_input_ui
 
 
 class PresetsActions():
@@ -57,7 +58,7 @@ class PresetsActions():
         self.display.clear()      
         self.display.print('Applying...', (5,1))
 
-        for light_id, state in self.presets[preset].items():
+        for light_id, state in self.presets[preset][1].items():
             if off: # If 'off' is True, turn off all lights in preset
                 self.deconz.get_light_by_id(light_id).off()
                 continue
@@ -73,13 +74,12 @@ class PresetsActions():
 class PresetsListMenu(BaseMenu):
     """ Select preset to edit """
     def __init__(self, keypad, display, deconz):
-        # TODO: Find way to order presets
         with open('presets.json', 'r') as po:
             self.presets = ujson.load(po)
 
         items = OrderedDict()
-        for name, preset in sorted(self.presets.items()):
-            items[name] = PresetMenu(keypad, display, preset, deconz)
+        for id, preset in sorted(self.presets.items()):
+            items[f'{id}: {preset[0]}'] = PresetMenu(keypad, display, preset[1], deconz)
 
         super().__init__(display, keypad, items)
 
@@ -93,13 +93,18 @@ class PresetsListMenu(BaseMenu):
             if self.keypad.p_zrusit:
                 return False
             if self.keypad.p_potvrz:
-                preset_name = self.strings[self.selected]
-                new_preset = self.items[preset_name].run() # Run preset menu
+                selected_item = self.strings[self.selected]
+                preset_id = selected_item.split(':')[0]
+                preset_name = self.presets[preset_id][0]
+                new_preset = self.items[selected_item].run() # Run preset menu
                 # if preset was changed
                 if new_preset:
-                    self.presets[preset_name] = new_preset
+                    new_name = text_input_ui(self.display, self.keypad, 'Name', preset_name)
+                    preset_name = new_name if new_name else preset_name
+                    self.presets[preset_id] = [preset_name, new_preset]
                     with open('presets.json', 'w') as po: # Save presets
                         ujson.dump(self.presets, po)
+                    return True
                 self.draw()
             if self.keypad.p_up:
                 self.selected -= 1
@@ -144,7 +149,7 @@ class PresetMenu(BaseMenu):
             self.keypad.get_keys()
             
             if self.keypad.p_zrusit:
-                break
+                return
             if self.keypad.p_potvrz:
                 item_name = self.strings[self.selected]
                 # Save preset
