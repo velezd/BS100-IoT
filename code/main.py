@@ -36,6 +36,10 @@ while True:
         if preset_actions.key_pressed():
             dash.draw_dash()
 
+    if keypad.p_kzprava:
+        preset_actions.menu().run()
+        dash.draw_dash()
+
     if keypad.p_potvrz:
         display.clear()
         display.print('Loading...', (5,1))
@@ -44,7 +48,7 @@ while True:
         dash.draw_dash()
 
     if keypad.p_zero:
-        system.ServiceMenu(ip, settings, display, keypad, deconz).run()
+        system.ServiceMenu(ip, settings, display, keypad, deconz, preset_actions).run()
         preset_actions.load()
         dash.draw_dash()
 

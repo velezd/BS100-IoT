@@ -118,11 +118,11 @@ class Settings():
 
 
 class ServiceMenu(BaseMenu):
-    def __init__(self, ip, settings, display, keypad, deconz):
+    def __init__(self, ip, settings, display, keypad, deconz, preset_actions):
         self.settings = settings
         items = {0: None,
                  1: 'time_summer',
-                 2: PresetsListMenu(keypad, display, deconz)}
+                 2: preset_actions.configure()}
         super().__init__(display, keypad, items, True)
         self.strings = ['IP: ' + ip, 'Summer time', 'Presets']
         self.item_toggles[1] = self.settings.g('time_summer')
