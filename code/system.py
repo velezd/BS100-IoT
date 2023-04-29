@@ -194,6 +194,9 @@ class BS100_dashboard():
         self.calendar = t.splitlines()
 
     def print_calendar(self):
+        # Clear old calendar
+        for i in range(3):
+            self.display.print(' '*20, (0,i))
         # Show calendar
         for i, line in enumerate(self.calendar):
             self.display.print(line, (0,i))
