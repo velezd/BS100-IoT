@@ -15,7 +15,7 @@ function doGet(e) {
     });
     if (!events.items || events.items.length === 0) {
       Logger.log('No events found.');
-      return;
+      return ContentService.createTextOutput('No events');
     }
   
     var res = ''
