@@ -30,16 +30,19 @@ preset_actions = PresetsActions(keypad, deconz, display)
 dash.draw_dash()
 
 while True:
+    dash.update()
     keypad.get_keys()
 
     if keypad.any_pressed():
         dash.backlight_on()
         if preset_actions.key_pressed():
             dash.draw_dash()
+            continue
 
     if keypad.p_kzprava:
         preset_actions.menu().run()
         dash.draw_dash()
+        continue
 
     if keypad.p_potvrz:
         display.clear()
@@ -47,10 +50,10 @@ while True:
         deconz.get_lights()
         LightsMenu(deconz.lights, keypad, display, True).run()
         dash.draw_dash()
+        continue
 
     if keypad.p_zero:
         system.ServiceMenu(ip, settings, display, keypad, deconz, preset_actions).run()
         preset_actions.load()
         dash.draw_dash()
-
-    dash.update()
+        continue
