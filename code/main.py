@@ -11,6 +11,7 @@ dash = system.BS100_dashboard(display, keypad)
 dash.load_bar(2)
 
 settings = system.Settings()
+dash.set_calendar_url(settings)
 dash.load_bar(2)
 
 ip = system.start_wifi(display, settings, verbose=False)

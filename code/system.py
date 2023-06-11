@@ -172,6 +172,7 @@ class BS100_dashboard():
         self.temp_sensor = TempSensor()
         self.temp = '----'
         self.deg_char = bytearray([0x02,0x05,0x02,0x00,0x00,0x00,0x00,0x00]) # degree character
+        self.calendar_url = ''
 
         self._timers_full = {
             'time': 60, # 1 minute
@@ -185,9 +186,12 @@ class BS100_dashboard():
 
         self.load_bar(2)
 
+    def set_calendar_url(self, settings):
+        self.calendar_url = settings.g('calendar')
+
     def get_calendar(self):
         # Get current calendar data
-        url = ''
+        url = self.calendar_url
         r = requests.get(url)
         t = r.text
         r.close()
